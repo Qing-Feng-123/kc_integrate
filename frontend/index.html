@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>海战战术模拟器 - 修正版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a1628;
+    color: #e0f7ff;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+  }
+  #gameContainer {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #header {
+    height: 56px;
+    background: linear-gradient(90deg, #0d2137, #1a3a5c);
+    border-bottom: 2px solid #2a6f97;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: #7dd3fc;
+    text-shadow: 0 0 10px rgba(125, 211, 252, 0.4);
+  }
+  .btn-group { display: flex; gap: 8px; }
+  button {
+    background: #1e4976;
+    border: 1px solid #3b82f6;
+    color: #bfdbfe;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  button:hover { background: #2563eb; color: white; }
+  button.active { background: #0ea5e9; color: white; border-color: #38bdf8; box-shadow: 0 0 8px rgba(14, 165, 233, 0.4); }
+  button.red { background: #7f1d1d; border-color: #ef4444; }
+  button.red:hover { background: #dc2626; }
+  button.red.active { background: #ef4444; color: white; }
+  button.blue { background: #1e3a8a; border-color: #3b82f6; }
+  button.blue:hover { background: #2563eb; }
+  button.blue.active { background: #3b82f6; color: white; }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+  #mainArea {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+  #sidebar {
+    width: 200px;
+    background: rgba(13, 33, 55, 0.95);
+    border-right: 1px solid #1e4976;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 5;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 14px;
+    color: #7dd3fc;
+    border-bottom: 1px solid #1e4976;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+  .ship-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(30, 73, 118, 0.15);
+    border: 1px solid rgba(30, 73, 118, 0.5);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.5;
+  }
+  .ship-btn:hover {
+    background: rgba(37, 99, 235, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+    opacity: 0.8;
+  }
+  .ship-btn.selected {
+    background: rgba(14, 165, 233, 0.25);
+    border-color: #0ea5e9;
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(14, 165, 233, 0.15);
+  }
+  .ship-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .ship-icon {
+    width: 32px; height: 32px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 12px;
+  }
+  .ship-info { font-size: 12px; }
+  .ship-name { font-weight: bold; color: #e0f7ff; }
+  .ship-desc { color: #94a3b8; font-size: 11px; margin-top: 2px; }
+  #canvasWrapper {
+    flex: 1;
+    position: relative;
+    background: #001830;
+    z-index: 1;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    position: relative;
+    z-index: 1;
+  }
+  #infoPanel {
+    position: absolute;
+    bottom: 15px;
+    left: 220px;
+    right: 20px;
+    background: rgba(13, 33, 55, 0.9);
+    border: 1px solid #1e4976;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    pointer-events: none;
+    display: flex;
+    gap: 24px;
+    z-index: 5;
+    flex-wrap: wrap;
+  }
+  .info-item { display: flex; flex-direction: column; }
+  .info-label { color: #7dd3fc; font-size: 11px; margin-bottom: 2px; }
+  .info-value { color: #e0f7ff; font-weight: bold; }
+  #tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    pointer-events: none;
+    display: none;
+    z-index: 20;
+    white-space: nowrap;
+  }
+  .mode-indicator {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13, 33, 55, 0.9);
+    border: 1px solid #0ea5e9;
+    border-radius: 20px;
+    padding: 6px 20px;
+    font-size: 14px;
+    color: #7dd3fc;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .legend {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: rgba(13, 33, 55, 0.9);
+    border: 1px solid #1e4976;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 12px;
+    z-index: 5;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 2px; }
+  .side-switch {
+    display: flex;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #475569;
+  }
+  .side-switch button {
+    border-radius: 0;
+    border: none;
+    flex: 1;
+  }
+  @media (max-width: 800px) {
+    #sidebar { width: 160px; padding: 10px; }
+    #sidebar .ship-btn { padding: 6px; }
+    #sidebar .ship-icon { width: 24px; height: 24px; font-size: 10px; }
+    #header h1 { font-size: 14px; }
+    button { padding: 4px 8px; font-size: 11px; }
+    #infoPanel { left: 180px; font-size: 11px; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="header">
+    <h1>⚓ 海战战术模拟器</h1>
+    <div class="btn-group">
+      <button id="btnPlace" class="active" onclick="window.gameApp.setMode('place')">🛠️ 部署</button>
+      <button id="btnCommand" onclick="window.gameApp.setMode('command')">🎯 指挥</button>
+      <button onclick="window.gameApp.startBattle()">⚔️ 开始</button>
+      <button id="btnPause" onclick="window.gameApp.togglePause()">⏸️ 暂停</button>
+      <button onclick="window.gameApp.clearAll()">🗑️ 清空</button>
+    </div>
+  </div>
+
+  <div id="mainArea">
+    <div id="sidebar">
+      <div class="panel-title">当前控制方</div>
+      <div class="side-switch">
+        <button id="btnRed" class="red" onclick="window.gameApp.setPlayerSide('red')">🔴 红方</button>
+        <button id="btnBlue" class="blue active" onclick="window.gameApp.setPlayerSide('blue')">🔵 蓝方</button>
+      </div>
+
+      <div class="panel-title" style="margin-top:8px">选择舰船类型</div>
+
+      <div class="ship-btn selected" data-type="CV" onclick="window.gameApp.selectShipType('CV')">
+        <div class="ship-icon" style="background:#c0392b;">CV</div>
+        <div class="ship-info">
+          <div class="ship-name">航空母舰</div>
+          <div class="ship-desc">拖拽目标发动空袭</div>
+        </div>
+      </div>
+
+      <div class="ship-btn" data-type="BB" onclick="window.gameApp.selectShipType('BB')">
+        <div class="ship-icon" style="background:#2980b9;">BB</div>
+        <div class="ship-info">
+          <div class="ship-name">战列舰</div>
+          <div class="ship-desc">远程重炮</div>
+        </div>
+      </div>
+
+      <div class="ship-btn" data-type="CL" onclick="window.gameApp.selectShipType('CL')">
+        <div class="ship-icon" style="background:#27ae60;">CL</div>
+        <div class="ship-info">
+          <div class="ship-name">巡洋舰</div>
+          <div class="ship-desc">炮击+鱼雷</div>
+        </div>
+      </div>
+
+      <div class="ship-btn" data-type="DD" onclick="window.gameApp.selectShipType('DD')">
+        <div class="ship-icon" style="background:#f39c12;">DD</div>
+        <div class="ship-info">
+          <div class="ship-name">驱逐舰</div>
+          <div class="ship-desc">鱼雷/反潜</div>
+        </div>
+      </div>
+
+      <div class="ship-btn" data-type="SS" onclick="window.gameApp.selectShipType('SS')">
+        <div class="ship-icon" style="background:#8e44ad;">SS</div>
+        <div class="ship-info">
+          <div class="ship-name">潜艇</div>
+          <div class="ship-desc">隐蔽鱼雷</div>
+        </div>
+      </div>
+
+      <div style="margin-top:auto; font-size:11px; color:#64748b; line-height:1.6;">
+        <b style="color:#7dd3fc;">操作指南：</b><br>
+        • 部署模式：点击海面放置舰船<br>
+        • 切换红/蓝方按钮改变控制方<br>
+        • 指挥模式：点击选中己方/敌方舰<br>
+        • <b>按住滑动</b>：划出航路轨迹<br>
+        • 拖拽航母：舰载机空袭<br>
+        • 右键/长按：清空当前航路<br>
+        • 暂停时：所有单位完全静止
+      </div>
+    </div>
+
+    <div id="canvasWrapper">
+      <canvas id="gameCanvas"></canvas>
+      <div class="mode-indicator" id="modeIndicator">部署模式 - 蓝方 - 点击海面放置舰船</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#ef4444;"></div> 红方舰队</div>
+        <div class="legend-item"><div class="legend-color" style="background:#3b82f6;"></div> 蓝方舰队</div>
+        <div class="legend-item"><div class="legend-color" style="background:#fbbf24;"></div> 炮弹</div>
+        <div class="legend-item"><div class="legend-color" style="background:#a3e635;"></div> 鱼雷</div>
+        <div class="legend-item"><div class="legend-color" style="background:#c084fc;"></div> 舰载机</div>
+      </div>
+      <div id="infoPanel">
+        <div class="info-item"><span class="info-label">选中舰船</span><span class="info-value" id="infoName">无</span></div>
+        <div class="info-item"><span class="info-label">阵营</span><span class="info-value" id="infoSide">-</span></div>
+        <div class="info-item"><span class="info-label">类型</span><span class="info-value" id="infoType">-</span></div>
+        <div class="info-item"><span class="info-label">生命值</span><span class="info-value" id="infoHP">-</span></div>
+        <div class="info-item"><span class="info-label">状态</span><span class="info-value" id="infoStatus">-</span></div>
+        <div class="info-item"><span class="info-label">航路长度</span><span class="info-value" id="infoPath">-</span></div>
+        <div class="info-item"><span class="info-label">武器冷却</span><span class="info-value" id="infoCooldown">-</span></div>
+      </div>
+      <div id="tooltip"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CONFIG
+// ============================================================
+const CONFIG = {
+  SHIP_DEFS: {
+    CV: { name: '航空母舰', hp: 200, speed: 0.4, range: 0, airRange: 350, size: 28, type: 'carrier' },
+    BB: { name: '战列舰', hp: 300, speed: 0.33, range: 220, shellDmg: 45, shellCooldown: 100, size: 26, type: 'battleship' },
+    CL: { name: '巡洋舰', hp: 160, speed: 0.6, range: 160, torpedoRange: 130, shellDmg: 28, torpedoDmg: 55, shellCooldown: 70, torpedoCooldown: 200, size: 22, type: 'cruiser' },
+    DD: { name: '驱逐舰', hp: 90, speed: 0.87, range: 90, torpedoRange: 160, shellDmg: 15, torpedoDmg: 75, shellCooldown: 40, torpedoCooldown: 240, size: 18, type: 'destroyer' },
+    SS: { name: '潜艇', hp: 70, speed: 0.67, range: 0, torpedoRange: 110, torpedoDmg: 120, torpedoCooldown: 300, size: 16, type: 'submarine', underwater: true }
+  },
+  COLORS: {
+    red: '#ef4444', blue: '#3b82f6', redStroke: '#fca5a5', blueStroke: '#7dd3fc',
+    shell: '#fbbf24', torpedo: '#a3e635', aircraft: '#c084fc', depthCharge: '#c084fc',
+    explosion: '#f97316', selection: '#fbbf24', path: '#fbbf24',
+    grid: 'rgba(30, 100, 160, 0.15)', ocean: '#0a2540', deepOcean: '#001830',
+    text: '#e0f7ff'
+  },
+  RENDER: {
+    gridSize: 50, wakeInterval: 10, wakeLife: 40,
+    shellTrailLength: 8, torpedoTrailLength: 20, aircraftTrailLength: 12,
+    explosionMaxLife: 30, selectionRadiusOffset: 10,
+    hpBarWidth: 2, hpBarHeight: 4, hpBarOffset: 12,
+    fontSize: 11, nameOffset: 14
+  },
+  INPUT: {
+    pathSimplifyDist: 15, minDragForAirStrike: 10,
+    clickDist: 5, aiMoveSpeedRatio: 0.6
+  },
+  WEAPON: {
+    shellSpeed: 5, shellMaxAge: 120, shellHitDist: 10, shellSplashRadius: 8,
+    torpedoSpeed: 2.8, torpedoMaxAge: 300, torpedoHitDist: 5, torpedoTurnRate: 0.03,
+    aircraftSpeed: 3.5, aircraftCount: 3, aircraftLaunchDelay: 200,
+    aircraftReturnDist: 20, aircraftAttackDist: 10, aircraftDmg: 25,
+    depthChargeArcHeight: 30, depthChargeProgressSpeed: 0.015,
+    depthChargeSplashRadius: 50, depthChargeDmgRatio: 0.8
+  },
+  COMBAT: {
+    flashDuration: 10, carrierAirCooldown: 400, aiAttackRange: 0.7
+  }
+};
+
+const Utils = {
+  dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+  angle: (a, b) => Math.atan2(b.y - a.y, b.x - a.x),
+  lerp: (a, b, t) => a + (b - a) * t,
+  rand: (min, max) => Math.random() * (max - min) + min,
+  normalizeAngle: (diff) => {
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    return diff;
+  },
+  getSideColor: (side) => side === 'red' ? CONFIG.COLORS.red : CONFIG.COLORS.blue,
+  getSideStroke: (side) => side === 'red' ? CONFIG.COLORS.redStroke : CONFIG.COLORS.blueStroke
+};
+
+// ============================================================
+//  Entities
+// ============================================================
+class Entity {
+  constructor(x, y, side) {
+    this.x = x; this.y = y; this.side = side;
+    this.dead = false; this.age = 0;
+  }
+  update(game) { this.age++; }
+  draw(ctx) {}
+}
+
+class Ship extends Entity {
+  constructor(x, y, side, shipType) {
+    super(x, y, side);
+    const d = CONFIG.SHIP_DEFS[shipType];
+    this.shipType = shipType;
+    this.name = d.name;
+    this.maxHp = d.hp; this.hp = d.hp;
+    this.maxSpeed = d.speed;
+    this.range = d.range || 0;
+    this.airRange = d.airRange || 0;
+    this.torpedoRange = d.torpedoRange || 0;
+    this.shellDmg = d.shellDmg || 0;
+    this.torpedoDmg = d.torpedoDmg || 0;
+    this.shellCooldown = d.shellCooldown || 0;
+    this.torpedoCooldown = d.torpedoCooldown || 0;
+    this.size = d.size;
+    this.category = d.type;
+    this.underwater = d.underwater || false;
+    this.path = [];
+    this.cooldownShell = 0;
+    this.cooldownTorpedo = 0;
+    this.cooldownAir = 0;
+    this.heading = 0;
+    this.selected = false;
+    this.flash = 0;
+  }
+
+  update(game) {
+    super.update(game);
+    if (this.hp <= 0) { this.dead = true; return; }
+    if (this.flash > 0) this.flash--;
+    if (this.cooldownShell > 0) this.cooldownShell--;
+    if (this.cooldownTorpedo > 0) this.cooldownTorpedo--;
+    if (this.cooldownAir > 0) this.cooldownAir--;
+
+    if (this.path.length > 0) {
+      const target = this.path[0];
+      const d = Utils.dist(this, target);
+      if (d < 8) {
+        this.path.shift();
+      } else {
+        const a = Utils.angle(this, target);
+        this.heading = a;
+        this.x += Math.cos(a) * this.maxSpeed;
+        this.y += Math.sin(a) * this.maxSpeed;
+      }
+    }
+
+    if (game.battleActive && !game.paused) {
+      this.aiBehavior(game);
+    }
+  }
+
+  aiBehavior(game) {
+    const enemies = this.side === 'red' ? game.blueShips : game.redShips;
+    if (enemies.length === 0) return;
+
+    let nearest = null, minDst = Infinity;
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const d = Utils.dist(this, e);
+      if (d < minDst) { minDst = d; nearest = e; }
+    }
+    if (!nearest) return;
+
+    if (this.category === 'carrier') {
+      if (minDst < this.airRange && this.cooldownAir <= 0) {
+        game.launchAircraft(this, nearest);
+        this.cooldownAir = CONFIG.COMBAT.carrierAirCooldown;
+      }
+    } else if (this.category === 'submarine') {
+      if (minDst < this.torpedoRange && this.cooldownTorpedo <= 0) {
+        game.fireTorpedo(this, nearest);
+        this.cooldownTorpedo = this.torpedoCooldown;
+      }
+    } else if (this.category === 'destroyer' || this.category === 'cruiser') {
+      if (nearest.category === 'submarine' && nearest.underwater && minDst < this.torpedoRange * CONFIG.COMBAT.aiAttackRange && this.cooldownTorpedo <= 0) {
+        game.fireDepthCharge(this, nearest);
+        this.cooldownTorpedo = this.torpedoCooldown;
+      } else if (minDst < this.torpedoRange && this.cooldownTorpedo <= 0) {
+        game.fireTorpedo(this, nearest);
+        this.cooldownTorpedo = this.torpedoCooldown;
+      } else if (minDst < this.range && this.cooldownShell <= 0) {
+        game.fireShell(this, nearest);
+        this.cooldownShell = this.shellCooldown;
+      }
+    } else if (this.category === 'battleship') {
+      if (minDst < this.range && this.cooldownShell <= 0) {
+        game.fireShell(this, nearest);
+        this.cooldownShell = this.shellCooldown;
+      }
+    }
+
+    if (this.side !== game.playerSide && this.path.length === 0) {
+      const a = Utils.angle(this, nearest);
+      this.heading = a;
+      this.x += Math.cos(a) * this.maxSpeed * CONFIG.INPUT.aiMoveSpeedRatio;
+      this.y += Math.sin(a) * this.maxSpeed * CONFIG.INPUT.aiMoveSpeedRatio;
+    }
+  }
+
+  takeDamage(dmg) {
+    this.hp -= dmg;
+    this.flash = CONFIG.COMBAT.flashDuration;
+    if (this.hp <= 0) this.dead = true;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    if (this.selected) {
+      ctx.strokeStyle = CONFIG.COLORS.selection;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size + CONFIG.RENDER.selectionRadiusOffset, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (this.flash > 0 && this.flash % 2 === 0) {
+      ctx.globalAlpha = 0.5;
+    }
+
+    ctx.rotate(this.heading + Math.PI / 2);
+
+    const color = Utils.getSideColor(this.side);
+    const strokeColor = Utils.getSideStroke(this.side);
+
+    ctx.fillStyle = color;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+
+    if (this.category === 'carrier') {
+      ctx.fillRect(-this.size * 0.8, -this.size * 0.4, this.size * 1.6, this.size * 0.8);
+      ctx.strokeRect(-this.size * 0.8, -this.size * 0.4, this.size * 1.6, this.size * 0.8);
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(-this.size * 0.6, -this.size * 0.2, this.size * 1.2, this.size * 0.05);
+    } else if (this.category === 'submarine') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.size, this.size * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      if (this.underwater) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ccc';
+      ctx.fillRect(-2, -this.size * 0.5 - 6, 4, 6);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size);
+      ctx.lineTo(-this.size * 0.6, this.size * 0.7);
+      ctx.lineTo(this.size * 0.6, this.size * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    if (this.hp < this.maxHp) {
+      const barW = this.size * CONFIG.RENDER.hpBarWidth;
+      const barH = CONFIG.RENDER.hpBarHeight;
+      const barX = this.x - barW / 2;
+      const barY = this.y - this.size - CONFIG.RENDER.hpBarOffset;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = this.hp / this.maxHp > 0.5 ? '#22c55e' : '#ef4444';
+      ctx.fillRect(barX, barY, barW * (this.hp / this.maxHp), barH);
+    }
+
+    ctx.fillStyle = CONFIG.COLORS.text;
+    ctx.font = CONFIG.RENDER.fontSize + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.name, this.x, this.y + this.size + CONFIG.RENDER.nameOffset);
+  }
+}
+
+class Shell extends Entity {
+  constructor(x, y, target, dmg, side) {
+    super(x, y, side);
+    this.dmg = dmg;
+    this.speed = CONFIG.WEAPON.shellSpeed;
+    this.tx = target.x + Utils.rand(-20, 20);
+    this.ty = target.y + Utils.rand(-20, 20);
+    const a = Utils.angle(this, {x: this.tx, y: this.ty});
+    this.vx = Math.cos(a) * this.speed;
+    this.vy = Math.sin(a) * this.speed;
+    this.trail = [];
+  }
+  update(game) {
+    super.update(game);
+    this.trail.push({x: this.x, y: this.y});
+    if (this.trail.length > CONFIG.RENDER.shellTrailLength) this.trail.shift();
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if (Utils.dist(this, {x: this.tx, y: this.ty}) < CONFIG.WEAPON.shellHitDist || this.age > CONFIG.WEAPON.shellMaxAge) {
+      this.dead = true;
+      game.particles.push(new Explosion(this.x, this.y, CONFIG.COLORS.shell));
+      for (const s of [...game.redShips, ...game.blueShips]) {
+        if (s.side !== this.side && !s.dead && Utils.dist(this, s) < s.size + CONFIG.WEAPON.shellSplashRadius) {
+          s.takeDamage(this.dmg);
+        }
+      }
+    }
+  }
+  draw(ctx) {
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (this.trail.length > 0) {
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (const p of this.trail) ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = CONFIG.COLORS.shell;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+class Torpedo extends Entity {
+  constructor(x, y, target, dmg, side) {
+    super(x, y, side);
+    this.target = target;
+    this.dmg = dmg;
+    this.speed = CONFIG.WEAPON.torpedoSpeed;
+    this.trail = [];
+    this.heading = Utils.angle(this, target);
+  }
+  update(game) {
+    super.update(game);
+    this.trail.push({x: this.x, y: this.y});
+    if (this.trail.length > CONFIG.RENDER.torpedoTrailLength) this.trail.shift();
+
+    if (!this.target.dead) {
+      const desired = Utils.angle(this, this.target);
+      let diff = Utils.normalizeAngle(desired - this.heading);
+      this.heading += diff * CONFIG.WEAPON.torpedoTurnRate;
+    }
+
+    this.x += Math.cos(this.heading) * this.speed;
+    this.y += Math.sin(this.heading) * this.speed;
+
+    if (Utils.dist(this, this.target) < this.target.size + CONFIG.WEAPON.torpedoHitDist || this.age > CONFIG.WEAPON.torpedoMaxAge) {
+      this.dead = true;
+      game.particles.push(new Explosion(this.x, this.y, CONFIG.COLORS.torpedo));
+      if (!this.target.dead && this.target.side !== this.side) {
+        this.target.takeDamage(this.dmg);
+      }
+    }
+  }
+  draw(ctx) {
+    ctx.strokeStyle = 'rgba(163, 230, 53, 0.3)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (this.trail.length > 0) {
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (const p of this.trail) ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = CONFIG.COLORS.torpedo;
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y, 6, 3, this.heading, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+class DepthCharge extends Entity {
+  constructor(x, y, target, dmg, side) {
+    super(x, y, side);
+    this.dmg = dmg;
+    this.startX = x; this.startY = y;
+    this.tx = target.x + Utils.rand(-30, 30);
+    this.ty = target.y + Utils.rand(-30, 30);
+    this.progress = 0;
+  }
+  update(game) {
+    super.update(game);
+    this.progress += CONFIG.WEAPON.depthChargeProgressSpeed;
+    if (this.progress >= 1) {
+      this.dead = true;
+      game.particles.push(new Explosion(this.tx, this.ty, CONFIG.COLORS.depthCharge));
+      for (const s of [...game.redShips, ...game.blueShips]) {
+        if (s.category === 'submarine' && s.underwater && !s.dead && Utils.dist({x: this.tx, y: this.ty}, s) < CONFIG.WEAPON.depthChargeSplashRadius) {
+          s.takeDamage(this.dmg);
+        }
+      }
+    }
+  }
+  draw(ctx) {
+    const x = Utils.lerp(this.startX, this.tx, this.progress);
+    const y = Utils.lerp(this.startY, this.ty, this.progress);
+    const z = Math.sin(this.progress * Math.PI) * CONFIG.WEAPON.depthChargeArcHeight;
+    const size = 4 + z * 0.1;
+    ctx.fillStyle = CONFIG.COLORS.depthCharge;
+    ctx.beginPath();
+    ctx.arc(x, y - z * 0.3, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+class Aircraft extends Entity {
+  constructor(x, y, target, carrier, dmg, side) {
+    super(x, y, side);
+    this.target = target;
+    this.carrier = carrier;
+    this.dmg = dmg;
+    this.speed = CONFIG.WEAPON.aircraftSpeed;
+    this.phase = 'attack';
+    this.trail = [];
+  }
+  update(game) {
+    super.update(game);
+    this.trail.push({x: this.x, y: this.y});
+    if (this.trail.length > CONFIG.RENDER.aircraftTrailLength) this.trail.shift();
+
+    let dest = this.phase === 'attack' ? this.target : this.carrier;
+    if (dest.dead) {
+      if (this.phase === 'attack') {
+        this.phase = 'return';
+        dest = this.carrier;
+        if (this.carrier.dead) { this.dead = true; return; }
+      } else {
+        this.dead = true; return;
+      }
+    }
+
+    const a = Utils.angle(this, dest);
+    this.x += Math.cos(a) * this.speed;
+    this.y += Math.sin(a) * this.speed;
+
+    if (this.phase === 'attack' && Utils.dist(this, dest) < dest.size + CONFIG.WEAPON.aircraftAttackDist) {
+      game.particles.push(new Explosion(this.x, this.y, CONFIG.COLORS.explosion));
+      if (!this.target.dead) this.target.takeDamage(this.dmg);
+      this.phase = 'return';
+    } else if (this.phase === 'return' && Utils.dist(this, dest) < CONFIG.WEAPON.aircraftReturnDist) {
+      this.dead = true;
+    }
+  }
+  draw(ctx) {
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (this.trail.length > 0) {
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (const p of this.trail) ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    const a = this.phase === 'attack' ? Utils.angle(this, this.target) : Utils.angle(this, this.carrier);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.fillStyle = CONFIG.COLORS.aircraft;
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(-5, 5);
+    ctx.lineTo(5, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class Explosion extends Entity {
+  constructor(x, y, color) {
+    super(x, y, 'neutral');
+    this.color = color;
+    this.maxLife = CONFIG.RENDER.explosionMaxLife;
+    this.life = CONFIG.RENDER.explosionMaxLife;
+    this.r = 5;
+  }
+  update(game) {
+    super.update(game);
+    this.life--;
+    this.r += 1.5;
+    if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = this.life / this.maxLife;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+class Wake extends Entity {
+  constructor(x, y, side) {
+    super(x, y, side);
+    this.life = CONFIG.RENDER.wakeLife;
+  }
+  update(game) {
+    super.update(game);
+    this.life--;
+    if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = this.life / CONFIG.RENDER.wakeLife * 0.3;
+    ctx.fillStyle = Utils.getSideColor(this.side);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ============================================================
+//  InputManager
+// ============================================================
+class InputManager {
+  constructor(canvas, game) {
+    this.canvas = canvas;
+    this.game = game;
+    this.mouse = { x: 0, y: 0, down: false };
+    this.dragStart = null;
+    this.dragShip = null;
+    this.isDragging = false;
+    this.swipePath = [];
+    this.swipeActive = false;
+    this.longPressTimer = null;
+    this.longPressTriggered = false;
+    this.pressPos = null;
+
+    this.setupEvents();
+  }
+
+  setupEvents() {
+    this.canvas.addEventListener('mousedown', e => this.onPointerDown(e.clientX, e.clientY, e.shiftKey));
+    this.canvas.addEventListener('mousemove', e => this.onPointerMove(e.clientX, e.clientY));
+    this.canvas.addEventListener('mouseup', e => this.onPointerUp(e.clientX, e.clientY));
+    this.canvas.addEventListener('mouseleave', e => this.onPointerUp(e.clientX, e.clientY));
+    this.canvas.addEventListener('contextmenu', e => { e.preventDefault(); this.clearSelectedPath(); });
+
+    this.canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      this.onPointerDown(t.clientX, t.clientY, false);
+    }, { passive: false });
+    this.canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      this.onPointerMove(t.clientX, t.clientY);
+    }, { passive: false });
+    this.canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      this.onPointerUp(this.mouse.x, this.mouse.y);
+    }, { passive: false });
+  }
+
+  getCanvasPos(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  onPointerDown(clientX, clientY, shiftKey) {
+    const pos = this.getCanvasPos(clientX, clientY);
+    this.mouse.x = pos.x;
+    this.mouse.y = pos.y;
+    this.mouse.down = true;
+    this.isDragging = false;
+    this.swipePath = [];
+    this.swipeActive = false;
+    this.longPressTriggered = false;
+    this.pressPos = { x: pos.x, y: pos.y };
+
+    if (this.game.mode === 'place') {
+      this.game.placeShip(pos.x, pos.y);
+      return;
+    }
+
+    const clicked = this.game.findShipAt(pos.x, pos.y);
+    if (clicked) {
+      this.game.selectShip(clicked);
+      if (clicked.category === 'carrier') {
+        this.dragStart = { x: pos.x, y: pos.y };
+        this.dragShip = clicked;
+      }
+    } else if (this.game.selectedShip) {
+      this.swipeActive = true;
+      this.swipePath = [{ x: pos.x, y: pos.y }];
+    } else {
+      this.game.selectShip(null);
+    }
+
+    this.longPressTimer = setTimeout(() => {
+      this.longPressTriggered = true;
+      this.clearSelectedPath();
+    }, 600);
+  }
+
+  onPointerMove(clientX, clientY) {
+    const pos = this.getCanvasPos(clientX, clientY);
+
+    if (this.longPressTimer && this.pressPos &&
+        (Math.abs(pos.x - this.pressPos.x) > 5 || Math.abs(pos.y - this.pressPos.y) > 5)) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+
+    this.mouse.x = pos.x;
+    this.mouse.y = pos.y;
+
+    if (!this.mouse.down) {
+      const hovered = this.game.findShipAt(pos.x, pos.y);
+      const tooltip = document.getElementById('tooltip');
+      if (hovered) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (clientX + 15) + 'px';
+        tooltip.style.top = (clientY + 15) + 'px';
+        const sideText = hovered.side === 'red' ? '红方' : '蓝方';
+        const typeText = {
+          carrier: '航母', battleship: '战列舰', cruiser: '巡洋舰',
+          destroyer: '驱逐舰', submarine: '潜艇'
+        }[hovered.category] || hovered.category;
+        tooltip.innerHTML = `<b>${hovered.name}</b> (${sideText})<br>HP: ${Math.ceil(hovered.hp)}/${hovered.maxHp}<br>类型: ${typeText}`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+      return;
+    }
+
+    if (this.dragShip && Utils.dist(this.dragStart, pos) > CONFIG.INPUT.minDragForAirStrike) {
+      this.isDragging = true;
+    }
+
+    if (this.swipeActive && this.game.selectedShip) {
+      this.swipePath.push({ x: pos.x, y: pos.y });
+    }
+  }
+
+  onPointerUp(clientX, clientY) {
+    const pos = this.getCanvasPos(clientX, clientY);
+    this.mouse.down = false;
+
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+
+    if (this.dragShip && this.dragShip.category === 'carrier' && this.isDragging) {
+      let target = null;
+      let minDst = Infinity;
+      const enemies = this.dragShip.side === 'red' ? this.game.blueShips : this.game.redShips;
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const d = Utils.dist({x: pos.x, y: pos.y}, e);
+        if (d < minDst) { minDst = d; target = e; }
+      }
+      if (target && minDst < 60 && Utils.dist(this.dragShip, target) < this.dragShip.airRange) {
+        this.game.launchAircraft(this.dragShip, target);
+        this.dragShip.cooldownAir = CONFIG.COMBAT.carrierAirCooldown;
+      }
+    }
+
+    if (this.swipeActive && this.game.selectedShip && this.swipePath.length > 1) {
+      const simplified = [];
+      simplified.push(this.swipePath[0]);
+      for (let i = 1; i < this.swipePath.length; i++) {
+        if (Utils.dist(simplified[simplified.length - 1], this.swipePath[i]) >= CONFIG.INPUT.pathSimplifyDist) {
+          simplified.push(this.swipePath[i]);
+        }
+      }
+      this.game.selectedShip.path = simplified;
+    }
+
+    this.dragStart = null;
+    this.dragShip = null;
+    this.isDragging = false;
+    this.swipeActive = false;
+    this.swipePath = [];
+    this.pressPos = null;
+  }
+
+  clearSelectedPath() {
+    if (this.game.selectedShip) {
+      this.game.selectedShip.path = [];
+    }
+  }
+}
+
+// ============================================================
+//  Renderer
+// ============================================================
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+  }
+
+  resize() {
+    const wrapper = document.getElementById('canvasWrapper');
+    this.canvas.width = wrapper.clientWidth;
+    this.canvas.height = wrapper.clientHeight;
+  }
+
+  clear() {
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+    ctx.fillStyle = CONFIG.COLORS.ocean;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  drawGrid() {
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+    ctx.strokeStyle = CONFIG.COLORS.grid;
+    ctx.lineWidth = 1;
+    const gs = CONFIG.RENDER.gridSize;
+    for (let x = 0; x < w; x += gs) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y < h; y += gs) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+  }
+
+  drawWakes(wakes) {
+    for (const w of wakes) w.draw(this.ctx);
+  }
+
+  drawEntities(entities) {
+    for (const e of entities) e.draw(this.ctx);
+  }
+
+  drawSelectedShipInfo(ship, swipePath) {
+    if (!ship) return;
+    const ctx = this.ctx;
+
+    ctx.strokeStyle = CONFIG.COLORS.path;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(ship.x, ship.y);
+    for (const p of ship.path) ctx.lineTo(p.x, p.y);
+    if (swipePath && swipePath.length > 0) {
+      for (const p of swipePath) ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (const p of ship.path) {
+      ctx.fillStyle = CONFIG.COLORS.path;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (swipePath) {
+      for (const p of swipePath) {
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.5)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (ship.range > 0) {
+      ctx.strokeStyle = 'rgba(14, 165, 233, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(ship.x, ship.y, ship.range, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (ship.torpedoRange > 0) {
+      ctx.strokeStyle = 'rgba(163, 230, 53, 0.2)';
+      ctx.beginPath();
+      ctx.arc(ship.x, ship.y, ship.torpedoRange, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (ship.airRange > 0) {
+      ctx.strokeStyle = 'rgba(192, 132, 252, 0.2)';
+      ctx.beginPath();
+      ctx.arc(ship.x, ship.y, ship.airRange, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  drawDragLine(dragShip, mouse) {
+    if (!dragShip || !mouse.down) return;
+    const ctx = this.ctx;
+    ctx.strokeStyle = CONFIG.COLORS.aircraft;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.moveTo(dragShip.x, dragShip.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const a = Utils.angle(dragShip, mouse);
+    ctx.fillStyle = CONFIG.COLORS.aircraft;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x, mouse.y);
+    ctx.lineTo(mouse.x - 10 * Math.cos(a - 0.3), mouse.y - 10 * Math.sin(a - 0.3));
+    ctx.lineTo(mouse.x - 10 * Math.cos(a + 0.3), mouse.y - 10 * Math.sin(a + 0.3));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  drawPlacePreview(x, y, shipType, side, allShips) {
+    const ctx = this.ctx;
+    const d = CONFIG.SHIP_DEFS[shipType];
+    const size = d.size;
+    const color = Utils.getSideColor(side);
+
+    let canPlace = true;
+    for (const s of allShips) {
+      if (Utils.dist(s, {x, y}) < s.size + size + 2) { canPlace = false; break; }
+    }
+
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = canPlace ? color : '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+
+    if (d.type === 'carrier') {
+      ctx.strokeRect(x - size * 0.8, y - size * 0.4, size * 1.6, size * 0.8);
+    } else if (d.type === 'submarine') {
+      ctx.beginPath();
+      ctx.ellipse(x, y, size, size * 0.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x - size * 0.6, y + size * 0.7);
+      ctx.lineTo(x + size * 0.6, y + size * 0.7);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  drawBattleIndicator(battleActive) {
+    if (!battleActive) return;
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('⚔️ 战斗中', 20, 30);
+  }
+
+  drawPauseOverlay(paused) {
+    if (!paused) return;
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏸️ 暂停', w / 2, h / 2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+
+// ============================================================
+//  GameEngine
+// ============================================================
+class GameEngine {
+  constructor() {
+    this.canvas = document.getElementById('gameCanvas');
+    this.renderer = new Renderer(this.canvas);
+    this.input = new InputManager(this.canvas, this);
+    this.renderer.resize();
+    window.addEventListener('resize', () => this.renderer.resize());
+
+    this.mode = 'place';
+    this.battleActive = false;
+    this.paused = false;
+    this.playerSide = 'blue';
+    this.selectedType = 'CV';
+    this.selectedShip = null;
+
+    this.redShips = [];
+    this.blueShips = [];
+    this.projectiles = [];
+    this.particles = [];
+    this.wakes = [];
+
+    this.age = 0;
+    this.loop();
+  }
+
+  getAllShips() { return [...this.redShips, ...this.blueShips]; }
+
+  findShipAt(x, y) {
+    for (const s of this.getAllShips()) {
+      if (!s.dead && Utils.dist(s, {x, y}) < s.size + CONFIG.INPUT.clickDist) return s;
+    }
+    return null;
+  }
+
+  placeShip(x, y) {
+    const newSize = CONFIG.SHIP_DEFS[this.selectedType].size;
+    for (const s of this.getAllShips()) {
+      if (Utils.dist(s, {x, y}) < s.size + newSize + 2) return;
+    }
+    const ship = new Ship(x, y, this.playerSide, this.selectedType);
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    ship.heading = Utils.angle(ship, {x: cx, y: cy});
+    if (this.playerSide === 'red') this.redShips.push(ship);
+    else this.blueShips.push(ship);
+  }
+
+  selectShip(ship) {
+    if (this.selectedShip) this.selectedShip.selected = false;
+    this.selectedShip = ship;
+    if (ship) ship.selected = true;
+    this.updateInfoPanel();
+  }
+
+  selectShipType(type) {
+    this.selectedType = type;
+    document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.querySelector(`.ship-btn[data-type="${type}"]`);
+    if (btn) btn.classList.add('selected');
+  }
+
+  setPlayerSide(side) {
+    this.playerSide = side;
+    document.getElementById('btnRed').classList.toggle('active', side === 'red');
+    document.getElementById('btnBlue').classList.toggle('active', side === 'blue');
+    this.updateModeIndicator();
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    document.getElementById('btnPlace').classList.toggle('active', mode === 'place');
+    document.getElementById('btnCommand').classList.toggle('active', mode === 'command');
+    this.updateModeIndicator();
+    if (mode === 'place') this.selectShip(null);
+  }
+
+  startBattle() {
+    this.battleActive = true;
+    this.paused = false;
+    this.setMode('command');
+    document.getElementById('btnPause').textContent = '⏸️ 暂停';
+    document.getElementById('btnRed').disabled = true;
+    document.getElementById('btnBlue').disabled = true;
+    this.updateModeIndicator();
+  }
+
+  togglePause() {
+    this.paused = !this.paused;
+    document.getElementById('btnPause').textContent = this.paused ? '▶️ 继续' : '⏸️ 暂停';
+    this.updateModeIndicator();
+  }
+
+  clearAll() {
+    this.redShips = [];
+    this.blueShips = [];
+    this.projectiles = [];
+    this.particles = [];
+    this.wakes = [];
+    this.selectedShip = null;
+    this.battleActive = false;
+    this.paused = false;
+    document.getElementById('btnPause').textContent = '⏸️ 暂停';
+    document.getElementById('btnRed').disabled = false;
+    document.getElementById('btnBlue').disabled = false;
+    this.setMode('place');
+  }
+
+  fireShell(from, target) {
+    this.projectiles.push(new Shell(from.x, from.y, target, from.shellDmg, from.side));
+  }
+
+  fireTorpedo(from, target) {
+    this.projectiles.push(new Torpedo(from.x, from.y, target, from.torpedoDmg, from.side));
+  }
+
+  fireDepthCharge(from, target) {
+    this.projectiles.push(new DepthCharge(from.x, from.y, target, from.torpedoDmg * CONFIG.WEAPON.depthChargeDmgRatio, from.side));
+  }
+
+  launchAircraft(carrier, target) {
+    for (let i = 0; i < CONFIG.WEAPON.aircraftCount; i++) {
+      setTimeout(() => {
+        this.projectiles.push(new Aircraft(
+          carrier.x + Utils.rand(-10, 10),
+          carrier.y + Utils.rand(-10, 10),
+          target, carrier, CONFIG.WEAPON.aircraftDmg, carrier.side
+        ));
+      }, i * CONFIG.WEAPON.aircraftLaunchDelay);
+    }
+  }
+
+  updateModeIndicator() {
+    const sideText = this.playerSide === 'red' ? '红方' : '蓝方';
+    const el = document.getElementById('modeIndicator');
+    if (this.paused) {
+      el.textContent = '⏸️ 暂停中 - 所有单位静止';
+    } else if (this.mode === 'place') {
+      el.textContent = `部署模式 - ${sideText} - 点击海面放置舰船`;
+    } else if (this.battleActive) {
+      el.textContent = `🔥 战斗中 - 可指挥任意方舰船`;
+    } else {
+      el.textContent = `指挥模式 - 选中舰船 → 滑动划出航路`;
+    }
+  }
+
+  updateInfoPanel() {
+    const s = this.selectedShip;
+    document.getElementById('infoName').textContent = s ? s.name : '无';
+    document.getElementById('infoSide').textContent = s ? (s.side === 'red' ? '🔴 红方' : '🔵 蓝方') : '-';
+    document.getElementById('infoType').textContent = s ? s.category : '-';
+    document.getElementById('infoHP').textContent = s ? `${Math.ceil(s.hp)}/${s.maxHp}` : '-';
+    document.getElementById('infoStatus').textContent = s ? (s.dead ? '沉没' : '作战中') : '-';
+    document.getElementById('infoPath').textContent = s ? s.path.length : '-';
+    if (s) {
+      let cdText = `炮:${s.cooldownShell}`;
+      if (s.torpedoCooldown > 0) cdText += ` 雷:${s.cooldownTorpedo}`;
+      if (s.airRange > 0) cdText += ` 空:${s.cooldownAir}`;
+      document.getElementById('infoCooldown').textContent = cdText;
+    } else {
+      document.getElementById('infoCooldown').textContent = '-';
+    }
+  }
+
+  update() {
+    if (!this.paused) {
+      for (const s of this.redShips) s.update(this);
+      for (const s of this.blueShips) s.update(this);
+      for (const p of this.projectiles) p.update(this);
+      for (const p of this.particles) p.update(this);
+      for (const w of this.wakes) w.update(this);
+
+      for (const s of this.getAllShips()) {
+        if ((s.path.length > 0 || (s.side !== this.playerSide && this.battleActive)) && this.age % CONFIG.RENDER.wakeInterval === 0) {
+          this.wakes.push(new Wake(s.x, s.y, s.side));
+        }
+      }
+
+      this.age++;
+    }
+
+    this.redShips = this.redShips.filter(s => !s.dead);
+    this.blueShips = this.blueShips.filter(s => !s.dead);
+    this.projectiles = this.projectiles.filter(p => !p.dead);
+    this.particles = this.particles.filter(p => !p.dead);
+    this.wakes = this.wakes.filter(w => !w.dead);
+
+    if (this.selectedShip && this.selectedShip.dead) this.selectShip(null);
+    if (this.age % 10 === 0) this.updateInfoPanel();
+  }
+
+  draw() {
+    this.renderer.clear();
+    this.renderer.drawGrid();
+    this.renderer.drawWakes(this.wakes);
+    this.renderer.drawSelectedShipInfo(this.selectedShip, this.input.swipeActive ? this.input.swipePath : null);
+    this.renderer.drawDragLine(this.input.dragShip, this.input.mouse);
+
+    if (this.mode === 'place' && !this.input.mouse.down) {
+      this.renderer.drawPlacePreview(this.input.mouse.x, this.input.mouse.y, this.selectedType, this.playerSide, this.getAllShips());
+    }
+
+    this.renderer.drawEntities(this.redShips);
+    this.renderer.drawEntities(this.blueShips);
+    this.renderer.drawEntities(this.projectiles);
+    this.renderer.drawEntities(this.particles);
+    this.renderer.drawBattleIndicator(this.battleActive);
+    this.renderer.drawPauseOverlay(this.paused);
+  }
+
+  loop() {
+    this.update();
+    this.draw();
+    requestAnimationFrame(() => this.loop());
+  }
+}
+
+// 使用 window 挂载确保全局可访问
+window.gameApp = new GameEngine();
+</script>
+</body>
+</html>
