@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         舰C拦截测试-本地验证版
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  测试能否拦截到舰C数据，无需后端
 // @author       Qing-Feng
 // @match        https://osapi.dmm.com/*
@@ -39,7 +39,7 @@
         `;
         panel.innerHTML = `
             <div style="color:#fff;font-weight:bold;font-size:13px;margin-bottom:6px;">
-                🐵 舰C拦截测试
+                🐵 舰C拦截测试 v1.1
             </div>
             <div style="color:#888;margin-bottom:6px;">
                 状态: <span id="kc-status" style="color:#ffd700;">等待游戏请求...</span>
