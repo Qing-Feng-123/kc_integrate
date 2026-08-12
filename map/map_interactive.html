@@ -508,7 +508,7 @@
     const starts = new Set();
     edges.forEach(e => {
       const ind = inDeg[e.from] || 0;
-      if (ind === 0 || ind >= 2) starts.add(e.from);
+      if (ind === 0) starts.add(e.from);
     });
 
     const paths = [];
